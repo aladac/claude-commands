@@ -5,54 +5,12 @@
 #        add-commit-push.sh  (uses timestamp if no message)
 set -euo pipefail
 
-FORCE=false
-MESSAGE=""
+source "$(dirname "$0")/../lib/git.sh"
 
-# Parse arguments
-for arg in "$@"; do
-    case $arg in
-        --force|-f)
-            FORCE=true
-            ;;
-        *)
-            if [[ -z "$MESSAGE" ]]; then
-                MESSAGE="$arg"
-            fi
-            ;;
-    esac
-done
+MESSAGE=$(parse_force_flag "$@")
 
-# Default message if none provided
-MESSAGE="${MESSAGE:-"Update $(date +%Y-%m-%d\ %H:%M)"}"
-
-# Stage all changes
-git add -A
-
-# Check if there are staged changes
-if git diff --cached --quiet; then
-    echo "No changes to commit"
-    exit 0
-fi
-
-# Show what's being committed
-echo "=== Staged changes ==="
-git diff --cached --stat
-echo ""
-
-# Commit
-git commit -m "$MESSAGE"
-
-# Push
-echo ""
-if $FORCE; then
-    echo "=== Pushing (force-with-lease) ==="
-    git push --force-with-lease
-else
-    echo "=== Pushing ==="
-    git push
-fi
-
-# Show result
-echo ""
-echo "=== Done ==="
-git log -1 --oneline
+git_stage_all || exit 0
+git_show_staged
+git_commit "$MESSAGE"
+git_push "$FORCE"
+git_show_result "Done"

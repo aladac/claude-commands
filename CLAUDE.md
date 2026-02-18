@@ -16,6 +16,7 @@ Commands are organized by scope prefix:
 
 | Directory | Commands | Purpose |
 |-----------|----------|---------|
+| `lib/` | — | Shared bash libraries |
 | `git/` | `/git:add-commit`, `/git:add-commit-push` | Quick git workflows |
 | `psn/` | `/psn:reinstall` | PSN plugin management |
 

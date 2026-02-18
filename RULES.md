@@ -7,6 +7,8 @@ Commands are organized by scope in subdirectories:
 ```
 commands/
 ├── RULES.md           # This file
+├── lib/               # Shared script libraries
+│   └── git.sh         # Git helper functions
 ├── git/               # /git:* commands
 │   ├── add-commit.md
 │   └── add-commit.sh
@@ -68,6 +70,23 @@ set -euo pipefail
 ```
 
 Scripts must be executable (`chmod +x`).
+
+### Shared Libraries (lib/)
+
+Reusable functions live in `lib/`. Source them in scripts:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+source "$(dirname "$0")/../lib/git.sh"
+
+git_stage_all || exit 0
+git_show_staged
+git_commit "$MESSAGE"
+```
+
+Available libraries:
+- `lib/git.sh` - Git operations (stage, commit, push, show)
 
 ## When to Use Scripts vs Instructions
 
