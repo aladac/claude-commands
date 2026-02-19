@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repository contains Claude Code slash commands. It is symlinked to `~/.claude/commands/`, so changes here take effect immediately.
 
 ```
-~/.claude/commands/ -> /Users/chi/Projects/claude-commands/
+~/.claude/commands/ -> ~/Projects/claude-commands/
 ```
 
 ## Repository Structure

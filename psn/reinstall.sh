@@ -3,8 +3,8 @@
 # Updates version, reinstalls via uv, syncs plugin and marketplace
 set -euo pipefail
 
-PSN_ROOT="/Users/chi/Projects/psn"
-MARKETPLACE="/Users/chi/.claude/plugins/marketplaces/saiden"
+PSN_ROOT="$HOME/Projects/psn"
+MARKETPLACE="$HOME/.claude/plugins/marketplaces/saiden"
 
 cd "$PSN_ROOT"
 
@@ -30,11 +30,18 @@ if [[ "$CURRENT_VERSION" == "$NEW_VERSION" ]]; then
 else
     echo "Updating version to $NEW_VERSION..."
 
+    # Portable sed in-place (macOS needs '', Linux doesn't)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        SED_INPLACE=(sed -i '')
+    else
+        SED_INPLACE=(sed -i)
+    fi
+
     # Update src/personality/__init__.py
-    sed -i '' "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" src/personality/__init__.py
+    "${SED_INPLACE[@]}" "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" src/personality/__init__.py
 
     # Update .claude-plugin/plugin.json
-    sed -i '' "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/" .claude-plugin/plugin.json
+    "${SED_INPLACE[@]}" "s/\"version\": \".*\"/\"version\": \"$NEW_VERSION\"/" .claude-plugin/plugin.json
 
     echo "Version updated in:"
     echo "  - src/personality/__init__.py"
