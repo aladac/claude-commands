@@ -14,6 +14,10 @@ CFG=7.0
 SEED=-1
 SAMPLER="euler"
 SCHEDULER="normal"
+LORA=""
+LORA_STRENGTH=1.0
+NO_QUALITY=""
+NO_NEGATIVE=""
 
 # API config from ~/.config/psn/config.toml
 CONFIG_FILE="${HOME}/.config/psn/config.toml"
@@ -73,6 +77,22 @@ while [[ $# -gt 0 ]]; do
       SCHEDULER="$2"
       shift 2
       ;;
+    --lora)
+      LORA="$2"
+      shift 2
+      ;;
+    --lora-strength)
+      LORA_STRENGTH="$2"
+      shift 2
+      ;;
+    --no-quality)
+      NO_QUALITY="true"
+      shift 1
+      ;;
+    --no-negative)
+      NO_NEGATIVE="true"
+      shift 1
+      ;;
     *)
       echo "Unknown option: $1" >&2
       exit 1
@@ -95,6 +115,9 @@ echo "Generating $COUNT images..."
 echo "  Prompt: $PROMPT"
 echo "  Size: ${WIDTH}x${HEIGHT}"
 echo "  Steps: $STEPS"
+[[ -n "$LORA" ]] && echo "  LoRA: $LORA (strength: $LORA_STRENGTH)"
+[[ -n "$NO_QUALITY" ]] && echo "  Auto quality: disabled"
+[[ -n "$NO_NEGATIVE" ]] && echo "  Auto negative: disabled"
 echo ""
 
 # Generate starting seed if random
@@ -109,6 +132,7 @@ for ((i=0; i<COUNT; i++)); do
   echo "[$((i+1))/$COUNT] Generating with seed: $CURRENT_SEED"
 
   # Build JSON payload
+  # Note: LoRA options require API support - included for future compatibility
   PAYLOAD=$(jq -n \
     --arg prompt "$PROMPT" \
     --arg negative "$NEGATIVE" \
@@ -119,6 +143,10 @@ for ((i=0; i<COUNT; i++)); do
     --argjson seed "$CURRENT_SEED" \
     --arg sampler "$SAMPLER" \
     --arg scheduler "$SCHEDULER" \
+    --arg lora "$LORA" \
+    --argjson lora_strength "$LORA_STRENGTH" \
+    --argjson no_quality "${NO_QUALITY:-false}" \
+    --argjson no_negative "${NO_NEGATIVE:-false}" \
     '{
       prompt: $prompt,
       negative_prompt: $negative,
@@ -128,7 +156,11 @@ for ((i=0; i<COUNT; i++)); do
       cfg: $cfg,
       seed: $seed,
       sampler: $sampler,
-      scheduler: $scheduler
+      scheduler: $scheduler,
+      lora_name: (if $lora == "" then null else $lora end),
+      lora_strength: $lora_strength,
+      no_quality: $no_quality,
+      no_negative: $no_negative
     }')
 
   # Call API

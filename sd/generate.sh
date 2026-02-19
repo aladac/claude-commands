@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generate image via ComfyUI API
+# Generate image via ComfyUI using tsr CLI
 # Usage: generate.sh --prompt "..." [options]
 set -euo pipefail
 
@@ -13,21 +13,13 @@ CFG=7.0
 SEED=-1
 SAMPLER="euler"
 SCHEDULER="normal"
-
-# API config from ~/.config/psn/config.toml
-CONFIG_FILE="${HOME}/.config/psn/config.toml"
-if [[ -f "$CONFIG_FILE" ]]; then
-  API_URL=$(awk -F'"' '/^api_url/ {print $2}' "$CONFIG_FILE")
-  API_KEY=$(awk -F'"' '/^api_key/ {print $2}' "$CONFIG_FILE")
-else
-  echo "Error: Config file not found: $CONFIG_FILE" >&2
-  exit 1
-fi
-
-if [[ -z "$API_KEY" ]]; then
-  echo "Error: tensors.api_key not found in config" >&2
-  exit 1
-fi
+MODEL=""
+COUNT=1
+LORA=""
+LORA_STRENGTH=1.0
+NO_QUALITY=""
+NO_NEGATIVE=""
+COMFYUI_URL="${COMFYUI_URL:-http://junkpile:8188}"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -68,6 +60,34 @@ while [[ $# -gt 0 ]]; do
       SCHEDULER="$2"
       shift 2
       ;;
+    --model)
+      MODEL="$2"
+      shift 2
+      ;;
+    --count)
+      COUNT="$2"
+      shift 2
+      ;;
+    --lora)
+      LORA="$2"
+      shift 2
+      ;;
+    --lora-strength)
+      LORA_STRENGTH="$2"
+      shift 2
+      ;;
+    --no-quality)
+      NO_QUALITY="true"
+      shift 1
+      ;;
+    --no-negative)
+      NO_NEGATIVE="true"
+      shift 1
+      ;;
+    --url)
+      COMFYUI_URL="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option: $1" >&2
       exit 1
@@ -81,66 +101,62 @@ if [[ -z "$PROMPT" ]]; then
   exit 1
 fi
 
-# Build JSON payload
-PAYLOAD=$(jq -n \
-  --arg prompt "$PROMPT" \
-  --arg negative "$NEGATIVE" \
-  --argjson width "$WIDTH" \
-  --argjson height "$HEIGHT" \
-  --argjson steps "$STEPS" \
-  --argjson cfg "$CFG" \
-  --argjson seed "$SEED" \
-  --arg sampler "$SAMPLER" \
-  --arg scheduler "$SCHEDULER" \
-  '{
-    prompt: $prompt,
-    negative_prompt: $negative,
-    width: $width,
-    height: $height,
-    steps: $steps,
-    cfg: $cfg,
-    seed: $seed,
-    sampler: $sampler,
-    scheduler: $scheduler
-  }')
+# Build output path (remote on junkpile)
+REMOTE_OUTPUT_DIR="/home/chi/Pictures/tensors"
+LOCAL_OUTPUT_DIR="${HOME}/Pictures/tensors"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+OUTPUT_FILENAME="sd_${TIMESTAMP}.png"
+REMOTE_OUTPUT_PATH="${REMOTE_OUTPUT_DIR}/${OUTPUT_FILENAME}"
+LOCAL_OUTPUT_PATH="${LOCAL_OUTPUT_DIR}/${OUTPUT_FILENAME}"
 
-echo "Generating image..."
+mkdir -p "$LOCAL_OUTPUT_DIR"
+
+# Build tsr command arguments
+TSR_ARGS="comfy generate '$PROMPT' -u '$COMFYUI_URL' -W $WIDTH -H $HEIGHT --steps $STEPS --cfg $CFG --seed $SEED --sampler '$SAMPLER' --scheduler '$SCHEDULER' --count $COUNT -o '$REMOTE_OUTPUT_PATH'"
+
+# Add optional args
+if [[ -n "$NEGATIVE" ]]; then
+  TSR_ARGS="$TSR_ARGS -n '$NEGATIVE'"
+fi
+
+if [[ -n "$MODEL" ]]; then
+  TSR_ARGS="$TSR_ARGS -m '$MODEL'"
+fi
+
+if [[ -n "$LORA" ]]; then
+  TSR_ARGS="$TSR_ARGS -l '$LORA' --lora-strength $LORA_STRENGTH"
+fi
+
+if [[ -n "$NO_QUALITY" ]]; then
+  TSR_ARGS="$TSR_ARGS --no-quality"
+fi
+
+if [[ -n "$NO_NEGATIVE" ]]; then
+  TSR_ARGS="$TSR_ARGS --no-negative"
+fi
+
+echo "Generating image on junkpile..."
 echo "  Prompt: $PROMPT"
 echo "  Size: ${WIDTH}x${HEIGHT}"
 echo "  Steps: $STEPS"
-
-# Call API
-RESPONSE=$(curl -s -X POST "${API_URL}/api/comfyui/generate" \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: ${API_KEY}" \
-  -d "$PAYLOAD")
-
-# Check response
-SUCCESS=$(echo "$RESPONSE" | jq -r '.success // false')
-if [[ "$SUCCESS" != "true" ]]; then
-  echo "Error: Generation failed" >&2
-  echo "$RESPONSE" | jq . >&2
-  exit 1
-fi
-
-# Extract image filename
-IMAGE=$(echo "$RESPONSE" | jq -r '.images[0] // empty')
-PROMPT_ID=$(echo "$RESPONSE" | jq -r '.prompt_id // empty')
-
-if [[ -z "$IMAGE" ]]; then
-  echo "Error: No image in response" >&2
-  exit 1
-fi
-
-echo "  Prompt ID: $PROMPT_ID"
-echo "  Image: $IMAGE"
-
-# Download image
-OUTPUT_PATH="/tmp/sd_generated_${PROMPT_ID}.png"
-curl -s "${API_URL}/api/comfyui/image/${IMAGE}" \
-  -H "X-API-Key: ${API_KEY}" \
-  -o "$OUTPUT_PATH"
-
+echo "  Count: $COUNT"
+[[ -n "$MODEL" ]] && echo "  Model: $MODEL"
+[[ -n "$LORA" ]] && echo "  LoRA: $LORA (strength: $LORA_STRENGTH)"
+[[ -n "$NO_QUALITY" ]] && echo "  Auto quality: disabled"
+[[ -n "$NO_NEGATIVE" ]] && echo "  Auto negative: disabled"
 echo ""
-echo "Image saved: $OUTPUT_PATH"
-echo "$OUTPUT_PATH"
+
+# Run tsr comfy generate on junkpile via SSH
+ssh junkpile "mkdir -p '$REMOTE_OUTPUT_DIR' && cd ~/Projects/tensors && uv run tsr $TSR_ARGS"
+
+# Copy generated image(s) back to local machine
+echo ""
+if [[ "$COUNT" -eq 1 ]]; then
+  scp "junkpile:$REMOTE_OUTPUT_PATH" "$LOCAL_OUTPUT_PATH"
+  echo "Image saved: $LOCAL_OUTPUT_PATH"
+  echo "$LOCAL_OUTPUT_PATH"
+else
+  scp "junkpile:${REMOTE_OUTPUT_DIR}/sd_${TIMESTAMP}*.png" "$LOCAL_OUTPUT_DIR/"
+  echo "Images saved to: $LOCAL_OUTPUT_DIR/"
+  ls -1 "${LOCAL_OUTPUT_DIR}"/sd_${TIMESTAMP}*.png
+fi
