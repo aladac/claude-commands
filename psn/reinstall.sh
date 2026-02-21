@@ -67,7 +67,7 @@ fi
 echo ""
 echo "=== Reinstall via uv ==="
 cd "$PSN_ROOT"
-uv pip install --system --break-system-packages -e .
+~/.local/bin/uv tool install --force .
 
 echo ""
 echo "=== Verify Installation ==="
@@ -83,14 +83,13 @@ echo "=== Update Marketplace ==="
 cd "$MARKETPLACE"
 git pull --rebase origin main 2>/dev/null || echo "Already up to date"
 
-# Sync plugin files (no submodules)
-rm -rf plugins/psn
-cp -r "$PSN_ROOT/.claude-plugin" plugins/psn
+# Update psn submodule to latest commit
+git submodule update --init --remote plugins/psn
 
-# Commit and push if changed
+# Commit and push if submodule changed
 if ! git diff --quiet; then
     git add plugins/psn
-    git commit -m "Sync psn plugin $NEW_VERSION"
+    git commit -m "Update psn submodule to $NEW_VERSION"
     git push
     echo "Marketplace updated."
 else
