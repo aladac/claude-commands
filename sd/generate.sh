@@ -19,7 +19,7 @@ LORA=""
 LORA_STRENGTH=1.0
 NO_QUALITY=""
 NO_NEGATIVE=""
-COMFYUI_URL="${COMFYUI_URL:-http://junkpile:8188}"
+COMFYUI_URL="${COMFYUI_URL:-http://192.168.88.111:8188}"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -147,7 +147,7 @@ echo "  Count: $COUNT"
 echo ""
 
 # Run tsr comfy generate on junkpile via SSH
-ssh junkpile "mkdir -p '$REMOTE_OUTPUT_DIR' && cd ~/Projects/tensors && uv run tsr $TSR_ARGS"
+ssh junkpile "mkdir -p '$REMOTE_OUTPUT_DIR' && cd /opt/tensors/app && /usr/local/bin/uv run tsr $TSR_ARGS"
 
 # Copy generated image(s) back to local machine
 echo ""
