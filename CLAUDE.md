@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This repository contains Claude Code slash commands. It is symlinked to `~/.claude/commands/`, so changes here take effect immediately.
 
 ```
-~/.claude/commands/ -> /Users/chi/Projects/claude-commands/
+~/.claude/commands/ -> /Users/chi/Projects/Config/claude-commands/
 ```
 
 ## Repository Structure
@@ -27,14 +27,6 @@ See `RULES.md` for complete command development guidelines. Key points:
 - **Scoped naming required**: Directory name = scope prefix (`git/foo.md` → `/git:foo`)
 - **File pairs**: `action.md` (required) + `action.sh` (optional, must be executable)
 - **YAML frontmatter**: Required `description` field, optional `args` array
-
-### When to use scripts vs instructions
-
-| Approach | Use When |
-|----------|----------|
-| Script only | Deterministic operations, no AI judgment needed |
-| Instructions only | AI must analyze/generate content |
-| Both | Script handles mechanics, AI generates input (e.g., commit messages) |
 
 ## Testing Commands
 
